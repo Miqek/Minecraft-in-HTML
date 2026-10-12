@@ -1,6 +1,6 @@
 # Minecraft-In-Html
 
-Versión modular del Minecraft en HTML/JS original (`Minecraft version 2 (1).html`). El juego, su apariencia y su
+Versión modular del Minecraft en HTML/JS original (`Minecraft.html`). El juego, su apariencia y su
 comportamiento son los del archivo original: el código se ha **repartido, no reescrito**.
 
 ## Archivos
