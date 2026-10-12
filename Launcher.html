@@ -12,8 +12,7 @@
 	h2 { margin: 0 0 8px; font-size: 16px; }
 	.sub, .hint { color: #a8a8a8; font-size: 14px; }
 	.card { background: #262626; border: 1px solid #3a3a3a; border-radius: 8px; padding: 16px; margin: 16px 0; }
-	button, label.btn { display: inline-block; background: #3b7d3b; color: #fff; border: 0; border-radius: 6px; padding: 10px 16px;
-		font: inherit; cursor: pointer; margin: 0 8px 8px 0; }
+	button, label.btn { display: inline-block; background: #3b7d3b; color: #fff; border: 0; border-radius: 6px; padding: 10px 16px; font: inherit; cursor: pointer; margin: 0 8px 8px 0; }
 	button.secondary, label.btn { background: #444; }
 	button:disabled { opacity: .45; cursor: not-allowed; }
 	#log { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 340px; overflow: auto; }
@@ -25,42 +24,31 @@
 <body>
 <main>
 	<h1>Minecraft-In-Html · Launcher</h1>
-	<p class="sub">Lee <code>manifest.json</code>, reúne los archivos del proyecto e integra HTML + CSS + JavaScript en una versión autocontenida (un solo HTML).</p>
+	<p class="sub">Descargando y empaquetando recursos desde GitHub para iniciar el juego...</p>
 
 	<section class="card">
-		<h2>1 · Origen de los archivos</h2>
-		<button id="btnHttp" class="secondary">Construir desde este servidor</button>
-		<label class="btn">Seleccionar la carpeta del proyecto…<input id="folder" type="file" webkitdirectory multiple hidden></label>
+		<h2>Estado y Origen</h2>
+		<button id="btnGithub">Reintentar desde GitHub</button>
+		<label class="btn">Cargar carpeta local…<input id="folder" type="file" webkitdirectory multiple hidden></label>
 		<p id="mode" class="hint"></p>
 	</section>
 
 	<section class="card">
-		<h2>2 · Resultado</h2>
+		<h2>Acciones manuales</h2>
 		<button id="btnOpen" disabled>▶ Abrir el juego</button>
 		<button id="btnSave" class="secondary" disabled>⬇ Descargar HTML autocontenido</button>
 		<p id="stats" class="hint"></p>
 	</section>
 
 	<section class="card"><h2>Registro</h2><div id="log"></div></section>
-
-	<section class="card">
-		<h2>Limitaciones</h2>
-		<ul>
-			<li>Un navegador no deja que una página abierta como <code>file://</code> lea otros archivos con <code>fetch</code>; por eso, en ese caso hay que seleccionar la carpeta (o servir el proyecto con <code>python -m http.server</code>).</li>
-			<li>Solo se integran archivos <b>locales referenciados</b> por el entrypoint (<code>&lt;link rel="stylesheet"&gt;</code>, <code>&lt;script src&gt;</code>, iconos locales y <code>@import</code>/<code>url()</code> locales en CSS). Lo que un script cargue dinámicamente en tiempo de ejecución no se puede detectar.</li>
-			<li>Los recursos remotos (Google Fonts, favicon de minecraft.net, widget de arc.io…) <b>no se descargan ni se incrustan</b>: siguen necesitando internet y los CORS del servidor remoto impiden copiarlos desde el navegador.</li>
-			<li>Los módulos ES (<code>type="module"</code> con <code>import</code>) no se integran; se dejan tal cual y se avisa.</li>
-			<li>Los atributos <code>async</code>/<code>defer</code> se pierden al incrustar: los scripts se ejecutan en orden de documento.</li>
-			<li>Los mundos guardados usan IndexedDB, que depende del origen de la página. Una pestaña <code>blob:</code> puede no persistirlos igual que el HTML descargado y abierto; si importa, descarga el HTML.</li>
-		</ul>
-	</section>
 </main>
 
 <script>
 (function () {
 	"use strict"
 
-	// ───────────────────────────── Rutas ─────────────────────────────
+	var GITHUB_BASE = "https://raw.githubusercontent.com/Miqek/Minecraft-in-HTML/main/";
+
 	function normalize(path) {
 		var out = []
 		String(path).replace(/\\/g, "/").split("/").forEach(function (seg) {
@@ -87,9 +75,8 @@
 		return MIME[(path.split(".").pop() || "").toLowerCase()] || "application/octet-stream"
 	}
 
-	// ───────────────────────────── Atributos HTML ─────────────────────────────
 	function getAttr(tag, name) {
-		var m = new RegExp("(?:^|[\\s\"'])" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(tag)
+		var m = new RegExp("(?:^[\\s\"'])" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(tag)
 		if (!m) return null
 		return m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : m[3])
 	}
@@ -118,8 +105,7 @@
 		return "data:" + mime + ";base64," + btoa(bin)
 	}
 
-	// ───────────────────────────── Fuentes de archivos ─────────────────────────────
-	function HttpSource(baseUrl) { this.base = baseUrl; this.label = "servidor (" + baseUrl + ")" }
+	function HttpSource(baseUrl) { this.base = baseUrl; this.label = baseUrl }
 	HttpSource.prototype._get = async function (path) {
 		var r = await fetch(new URL(path, this.base).href, { cache: "no-store" })
 		if (!r.ok) throw new Error("HTTP " + r.status + " al leer «" + path + "»")
@@ -150,7 +136,6 @@
 	FolderSource.prototype.text = async function (p) { return this._file(p).text() }
 	FolderSource.prototype.blob = async function (p) { return this._file(p) }
 
-	// ───────────────────────────── CSS ─────────────────────────────
 	async function inlineCss(source, path, ctx, stack) {
 		stack = stack || []
 		if (stack.indexOf(path) >= 0) throw new Error("@import circular en «" + path + "»")
@@ -160,7 +145,7 @@
 		css = await replaceAsync(css, /@import\s+(?:url\(\s*)?(["']?)([^"')\s;]+)\1\s*\)?([^;]*);/gi, async function (all, q, ref, media) {
 			if (isRemote(ref)) { if (isHttp(ref)) ctx.remote.push(ref); return all }
 			var p = resolve(dir, ref)
-			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: @import sin integrar."); return all }
+			if (ctx.isExcluded(p)) { ctx.excluded.push(p); return all }
 			ctx.inlined.push(p)
 			var inner = await inlineCss(source, p, ctx, stack.concat(path))
 			media = media.trim()
@@ -176,38 +161,35 @@
 				ctx.inlined.push(p)
 				return 'url("' + await toDataURL(b, mimeOf(p, b)) + '")'
 			} catch (e) {
-				ctx.warn("No se pudo incrustar «" + p + "» desde el CSS: " + e.message)
+				ctx.warn("No se pudo incrustar «" + p + "»: " + e.message)
 				return all
 			}
 		})
 		return css
 	}
 
-	// ───────────────────────────── Construcción ─────────────────────────────
 	async function build(source, onLog) {
 		var ctx = { inlined: [], remote: [], excluded: [], warnings: [] }
 		ctx.log = onLog || function () {}
 		ctx.warn = function (m) { ctx.warnings.push(m); ctx.log("warn", m) }
 
 		var manifest = JSON.parse(await source.text("manifest.json"))
-		if (!manifest || typeof manifest.entrypoint !== "string") throw new Error("manifest.json: falta la clave «entrypoint».")
+		if (!manifest || typeof manifest.entrypoint !== "string") throw new Error("manifest.json: falta «entrypoint».")
 		var excl = (Array.isArray(manifest.exclude) ? manifest.exclude : []).map(function (e) { return normalize(e).toLowerCase() })
 		ctx.isExcluded = function (p) { var l = p.toLowerCase(); return excl.indexOf(l) >= 0 || excl.indexOf(basename(l)) >= 0 }
-		ctx.log("info", "manifest.json leído · entrypoint: " + manifest.entrypoint + " · exclude: " + (excl.join(", ") || "(vacío)"))
+		ctx.log("info", "Leyendo manifest.json...")
 
 		var entry = normalize(manifest.entrypoint)
-		if (ctx.isExcluded(entry)) throw new Error("El entrypoint «" + entry + "» aparece en «exclude».")
 		var html = await source.text(entry)
 		var base = dirname(entry)
-		ctx.log("info", "Entrypoint cargado: " + entry + " (" + html.length.toLocaleString() + " caracteres)")
+		ctx.log("info", "Cargando código base: " + entry)
 
-		// 1) <link>: hojas de estilo → <style>; iconos locales → data:
 		html = await replaceAsync(html, /<link\b[^>]*>/gi, async function (tag) {
 			var rel = (getAttr(tag, "rel") || "").toLowerCase(), href = getAttr(tag, "href")
 			if (!href) return tag
 			if (isRemote(href)) { if (isHttp(href)) ctx.remote.push(href); return tag }
 			var p = resolve(base, href)
-			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: no se integra."); return tag }
+			if (ctx.isExcluded(p)) return tag
 			if (/\bstylesheet\b/.test(rel)) {
 				var css = await inlineCss(source, p, ctx)
 				ctx.inlined.push(p)
@@ -218,40 +200,28 @@
 			if (/\bicon\b/.test(rel)) {
 				var b = await source.blob(p)
 				ctx.inlined.push(p)
-				var data = await toDataURL(b, mimeOf(p, b))
-				ctx.log("ok", "Icono integrado: " + p)
-				return tag.replace(href, function () { return data })
+				return tag.replace(href, function () { return toDataURL(b, mimeOf(p, b)) })
 			}
 			return tag
 		})
 
-		// 2) <script src>: JavaScript local → <script> inline (se conserva el orden del documento)
 		html = await replaceAsync(html, /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, async function (all, attrs) {
 			var src = getAttr(attrs, "src")
 			if (!src) return all
 			if (isRemote(src)) { if (isHttp(src)) ctx.remote.push(src); return all }
 			var p = resolve(base, src)
-			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: no se integra."); return all }
+			if (ctx.isExcluded(p)) return all
 			var code = await source.text(p)
-			var type = (getAttr(attrs, "type") || "").toLowerCase()
-			if (type === "module" && /(^|\n)\s*import[\s{*"']|\bimport\s*\(/.test(code)) {
-				ctx.warn("«" + p + "» es un módulo ES con import: no se puede integrar; se deja como enlace.")
-				return all
-			}
-			if (/\b(async|defer)\b/i.test(attrs)) ctx.warn("«" + p + "»: se pierden async/defer al incrustarlo (se ejecutará en orden de documento).")
 			ctx.inlined.push(p)
-			ctx.log("ok", "JS integrado: " + p + " (" + code.length.toLocaleString() + " caracteres)")
+			ctx.log("ok", "JS integrado: " + p)
 			var keep = removeAttrs(attrs, ["src", "async", "defer", "integrity", "crossorigin"])
-			return "<script" + keep + ">\n" + code.replace(/<\/script/gi, "<\\/script").replace(/<\!--/g, "<\\!--") + "\n<\/script>"
+			return "<script" + keep + ">\n" + code.replace(/<\/script/gi, "<\\/script>").replace(/<!--/g, "<\\!--") + "\n<\/script>"
 		})
 
 		var uniq = function (a) { return a.filter(function (x, i) { return a.indexOf(x) === i }) }
-		ctx.remote = uniq(ctx.remote)
-		return { html: html, entry: entry, manifest: manifest, inlined: uniq(ctx.inlined), remote: ctx.remote,
-			excluded: uniq(ctx.excluded), warnings: ctx.warnings }
+		return { html: html, entry: entry, manifest: manifest, inlined: uniq(ctx.inlined), remote: uniq(ctx.remote) }
 	}
 
-	// ───────────────────────────── Interfaz ─────────────────────────────
 	var $ = function (id) { return document.getElementById(id) }
 	var current = null
 
@@ -265,49 +235,56 @@
 	function setReady(ok) { $("btnOpen").disabled = !ok; $("btnSave").disabled = !ok }
 	function blobUrl() { return URL.createObjectURL(new Blob([current.html], { type: "text/html;charset=utf-8" })) }
 
-	async function run(source) {
+	function launchDirectly(html) {
+		log("ok", "Iniciando juego...")
+		setTimeout(function () {
+			document.open()
+			document.write(html)
+			document.close()
+		}, 600)
+	}
+
+	async function run(source, autoLaunch) {
 		$("log").textContent = ""
 		setReady(false)
 		current = null
 		try {
-			log("info", "Origen: " + source.label)
+			log("info", "Conectando con: " + source.label)
 			current = await build(source, log)
 			var kb = (current.html.length / 1024).toFixed(1)
-			log("ok", "✔ Versión autocontenida lista: " + kb + " KB · " + current.inlined.length + " archivo(s) integrado(s).")
-			current.remote.forEach(function (u) { log("warn", "Recurso remoto que sigue necesitando internet: " + u) })
-			if (location.protocol === "file:") log("warn", "Aviso: desde file:// la pestaña «Abrir el juego» (blob:) no puede usar IndexedDB, así que no se guardarían mundos ni ajustes. Para guardar, usa «Descargar HTML autocontenido» y abre ese archivo.")
-			$("stats").textContent = current.inlined.length + " archivos integrados · " + kb + " KB · " + current.remote.length + " recurso(s) remoto(s) sin incrustar"
+			log("ok", "✔ Todo listo: " + kb + " KB (" + current.inlined.length + " archivos integrados)")
+			$("stats").textContent = current.inlined.length + " archivos · " + kb + " KB"
 			setReady(true)
+
+			if (autoLaunch) {
+				launchDirectly(current.html)
+			}
 		} catch (e) {
-			log("err", "✖ " + e.message)
-			if (source instanceof HttpSource) log("warn", "Si abriste este archivo con doble clic (file://), el navegador bloquea la lectura: usa «Seleccionar la carpeta del proyecto…».")
+			log("err", "✖ Error: " + e.message)
 		}
 	}
 
-	$("btnHttp").addEventListener("click", function () { run(new HttpSource(new URL(".", location.href).href)) })
-	$("folder").addEventListener("change", function (e) { if (e.target.files && e.target.files.length) run(new FolderSource(e.target.files)) })
-	$("btnOpen").addEventListener("click", function () {
-		if (!current) return
-		var w = window.open(blobUrl(), "_blank")
-		if (!w) log("warn", "El navegador bloqueó la ventana emergente: permítela o usa «Descargar HTML autocontenido».")
-	})
+	$("btnGithub").addEventListener("click", function () { run(new HttpSource(GITHUB_BASE), true) })
+	$("folder").addEventListener("change", function (e) { if (e.target.files && e.target.files.length) run(new FolderSource(e.target.files), false) })
+	$("btnOpen").addEventListener("click", function () { if (current) launchDirectly(current.html) })
 	$("btnSave").addEventListener("click", function () {
 		if (!current) return
 		var a = document.createElement("a")
 		a.href = blobUrl()
-		a.download = "Minecraft-In-Html.standalone.html"
+		a.download = "Minecraft-Standalone.html"
 		document.body.appendChild(a)
 		a.click()
 		a.remove()
 	})
 
-	window.MKLauncher = { build: build, normalize: normalize, FolderSource: FolderSource, HttpSource: HttpSource }
-
 	if (location.protocol === "http:" || location.protocol === "https:") {
-		$("mode").textContent = "Servido por HTTP: se construye automáticamente leyendo los archivos con fetch."
-		run(new HttpSource(new URL(".", location.href).href))
+		var isGitHubHost = location.hostname.indexOf("github") !== -1
+		var src = isGitHubHost ? GITHUB_BASE : new URL(".", location.href).href
+		$("mode").textContent = "Cargando automáticamente desde el servidor web..."
+		run(new HttpSource(src), true)
 	} else {
-		$("mode").textContent = "Abierto como archivo local (file://): el navegador no permite fetch a otros archivos. Selecciona la carpeta del proyecto."
+		$("mode").textContent = "Archivo local (file://): descargando recursos de GitHub automáticamente..."
+		run(new HttpSource(GITHUB_BASE), true)
 	}
 })()
 </script>
