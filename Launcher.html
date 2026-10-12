@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft-In-Html · Launcher</title>
+<style>
+	:root { color-scheme: dark; }
+	body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #1b1b1b; color: #e8e8e8; }
+	main { max-width: 860px; margin: 0 auto; padding: 24px 16px 56px; }
+	h1 { margin: 0 0 4px; font-size: 24px; }
+	h2 { margin: 0 0 8px; font-size: 16px; }
+	.sub, .hint { color: #a8a8a8; font-size: 14px; }
+	.card { background: #262626; border: 1px solid #3a3a3a; border-radius: 8px; padding: 16px; margin: 16px 0; }
+	button, label.btn { display: inline-block; background: #3b7d3b; color: #fff; border: 0; border-radius: 6px; padding: 10px 16px;
+		font: inherit; cursor: pointer; margin: 0 8px 8px 0; }
+	button.secondary, label.btn { background: #444; }
+	button:disabled { opacity: .45; cursor: not-allowed; }
+	#log { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; max-height: 340px; overflow: auto; }
+	.info { color: #cfcfcf; } .ok { color: #7ddc7d; } .warn { color: #f0c36d; } .err { color: #ff7b7b; }
+	code { background: #333; padding: 1px 5px; border-radius: 4px; }
+	ul { margin: 6px 0 0; padding-left: 20px; font-size: 14px; color: #c8c8c8; } li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+	<h1>Minecraft-In-Html · Launcher</h1>
+	<p class="sub">Lee <code>manifest.json</code>, reúne los archivos del proyecto e integra HTML + CSS + JavaScript en una versión autocontenida (un solo HTML).</p>
+
+	<section class="card">
+		<h2>1 · Origen de los archivos</h2>
+		<button id="btnHttp" class="secondary">Construir desde este servidor</button>
+		<label class="btn">Seleccionar la carpeta del proyecto…<input id="folder" type="file" webkitdirectory multiple hidden></label>
+		<p id="mode" class="hint"></p>
+	</section>
+
+	<section class="card">
+		<h2>2 · Resultado</h2>
+		<button id="btnOpen" disabled>▶ Abrir el juego</button>
+		<button id="btnSave" class="secondary" disabled>⬇ Descargar HTML autocontenido</button>
+		<p id="stats" class="hint"></p>
+	</section>
+
+	<section class="card"><h2>Registro</h2><div id="log"></div></section>
+
+	<section class="card">
+		<h2>Limitaciones</h2>
+		<ul>
+			<li>Un navegador no deja que una página abierta como <code>file://</code> lea otros archivos con <code>fetch</code>; por eso, en ese caso hay que seleccionar la carpeta (o servir el proyecto con <code>python -m http.server</code>).</li>
+			<li>Solo se integran archivos <b>locales referenciados</b> por el entrypoint (<code>&lt;link rel="stylesheet"&gt;</code>, <code>&lt;script src&gt;</code>, iconos locales y <code>@import</code>/<code>url()</code> locales en CSS). Lo que un script cargue dinámicamente en tiempo de ejecución no se puede detectar.</li>
+			<li>Los recursos remotos (Google Fonts, favicon de minecraft.net, widget de arc.io…) <b>no se descargan ni se incrustan</b>: siguen necesitando internet y los CORS del servidor remoto impiden copiarlos desde el navegador.</li>
+			<li>Los módulos ES (<code>type="module"</code> con <code>import</code>) no se integran; se dejan tal cual y se avisa.</li>
+			<li>Los atributos <code>async</code>/<code>defer</code> se pierden al incrustar: los scripts se ejecutan en orden de documento.</li>
+			<li>Los mundos guardados usan IndexedDB, que depende del origen de la página. Una pestaña <code>blob:</code> puede no persistirlos igual que el HTML descargado y abierto; si importa, descarga el HTML.</li>
+		</ul>
+	</section>
+</main>
+
+<script>
+(function () {
+	"use strict"
+
+	// ───────────────────────────── Rutas ─────────────────────────────
+	function normalize(path) {
+		var out = []
+		String(path).replace(/\\/g, "/").split("/").forEach(function (seg) {
+			if (seg === "" || seg === ".") return
+			if (seg === "..") { out.pop(); return }
+			out.push(seg)
+		})
+		return out.join("/")
+	}
+	function dirname(p) { var i = p.lastIndexOf("/"); return i < 0 ? "" : p.slice(0, i) }
+	function basename(p) { var i = p.lastIndexOf("/"); return i < 0 ? p : p.slice(i + 1) }
+	function stripQuery(ref) { return ref.replace(/[?#].*$/, "") }
+	function isHttp(ref) { return /^(?:https?:)?\/\//i.test(ref) }
+	function isRemote(ref) { return isHttp(ref) || /^(?:data|blob|about|javascript|mailto):/i.test(ref) || ref.charAt(0) === "#" }
+	function resolve(baseDir, ref) {
+		ref = stripQuery(ref.trim())
+		return ref.charAt(0) === "/" ? normalize(ref) : normalize(baseDir + "/" + ref)
+	}
+
+	var MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+		ico: "image/x-icon", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf", otf: "font/otf", css: "text/css", js: "text/javascript" }
+	function mimeOf(path, blob) {
+		if (blob && blob.type) return blob.type
+		return MIME[(path.split(".").pop() || "").toLowerCase()] || "application/octet-stream"
+	}
+
+	// ───────────────────────────── Atributos HTML ─────────────────────────────
+	function getAttr(tag, name) {
+		var m = new RegExp("(?:^|[\\s\"'])" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i").exec(tag)
+		if (!m) return null
+		return m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : m[3])
+	}
+	function removeAttrs(attrs, names) {
+		names.forEach(function (n) {
+			attrs = attrs.replace(new RegExp("\\s+" + n + "(?:\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s>]+))?", "gi"), "")
+		})
+		return attrs
+	}
+
+	async function replaceAsync(str, re, fn) {
+		var matches = [], m
+		re.lastIndex = 0
+		while ((m = re.exec(str)) !== null) { matches.push(m); if (m[0].length === 0) re.lastIndex++ }
+		var out = "", pos = 0
+		for (var i = 0; i < matches.length; i++) {
+			out += str.slice(pos, matches[i].index) + await fn.apply(null, matches[i])
+			pos = matches[i].index + matches[i][0].length
+		}
+		return out + str.slice(pos)
+	}
+
+	async function toDataURL(blob, mime) {
+		var bytes = new Uint8Array(await blob.arrayBuffer()), bin = "", CH = 0x8000
+		for (var i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH))
+		return "data:" + mime + ";base64," + btoa(bin)
+	}
+
+	// ───────────────────────────── Fuentes de archivos ─────────────────────────────
+	function HttpSource(baseUrl) { this.base = baseUrl; this.label = "servidor (" + baseUrl + ")" }
+	HttpSource.prototype._get = async function (path) {
+		var r = await fetch(new URL(path, this.base).href, { cache: "no-store" })
+		if (!r.ok) throw new Error("HTTP " + r.status + " al leer «" + path + "»")
+		return r
+	}
+	HttpSource.prototype.text = async function (p) { return (await this._get(p)).text() }
+	HttpSource.prototype.blob = async function (p) { return (await this._get(p)).blob() }
+
+	function FolderSource(fileList) {
+		var list = Array.prototype.slice.call(fileList)
+		var roots = {}
+		list.forEach(function (f) { roots[(f.webkitRelativePath || f.name).split("/")[0]] = true })
+		var strip = Object.keys(roots).length === 1 && list.some(function (f) { return (f.webkitRelativePath || "").indexOf("/") > 0 })
+		this.map = {}; this.lower = {}
+		var self = this
+		list.forEach(function (f) {
+			var rel = normalize(f.webkitRelativePath || f.name)
+			if (strip) rel = rel.split("/").slice(1).join("/")
+			self.map[rel] = f; self.lower[rel.toLowerCase()] = f
+		})
+		this.label = "carpeta seleccionada (" + list.length + " archivos)"
+	}
+	FolderSource.prototype._file = function (p) {
+		var f = this.map[p] || this.lower[p.toLowerCase()]
+		if (!f) throw new Error("No está en la carpeta: «" + p + "»")
+		return f
+	}
+	FolderSource.prototype.text = async function (p) { return this._file(p).text() }
+	FolderSource.prototype.blob = async function (p) { return this._file(p) }
+
+	// ───────────────────────────── CSS ─────────────────────────────
+	async function inlineCss(source, path, ctx, stack) {
+		stack = stack || []
+		if (stack.indexOf(path) >= 0) throw new Error("@import circular en «" + path + "»")
+		var dir = dirname(path)
+		var css = await source.text(path)
+
+		css = await replaceAsync(css, /@import\s+(?:url\(\s*)?(["']?)([^"')\s;]+)\1\s*\)?([^;]*);/gi, async function (all, q, ref, media) {
+			if (isRemote(ref)) { if (isHttp(ref)) ctx.remote.push(ref); return all }
+			var p = resolve(dir, ref)
+			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: @import sin integrar."); return all }
+			ctx.inlined.push(p)
+			var inner = await inlineCss(source, p, ctx, stack.concat(path))
+			media = media.trim()
+			return media ? "@media " + media + " {\n" + inner + "\n}" : inner
+		})
+
+		css = await replaceAsync(css, /url\(\s*(["']?)([^"')]+)\1\s*\)/gi, async function (all, q, ref) {
+			ref = ref.trim()
+			if (isRemote(ref)) { if (isHttp(ref)) ctx.remote.push(ref); return all }
+			var p = resolve(dir, ref)
+			try {
+				var b = await source.blob(p)
+				ctx.inlined.push(p)
+				return 'url("' + await toDataURL(b, mimeOf(p, b)) + '")'
+			} catch (e) {
+				ctx.warn("No se pudo incrustar «" + p + "» desde el CSS: " + e.message)
+				return all
+			}
+		})
+		return css
+	}
+
+	// ───────────────────────────── Construcción ─────────────────────────────
+	async function build(source, onLog) {
+		var ctx = { inlined: [], remote: [], excluded: [], warnings: [] }
+		ctx.log = onLog || function () {}
+		ctx.warn = function (m) { ctx.warnings.push(m); ctx.log("warn", m) }
+
+		var manifest = JSON.parse(await source.text("manifest.json"))
+		if (!manifest || typeof manifest.entrypoint !== "string") throw new Error("manifest.json: falta la clave «entrypoint».")
+		var excl = (Array.isArray(manifest.exclude) ? manifest.exclude : []).map(function (e) { return normalize(e).toLowerCase() })
+		ctx.isExcluded = function (p) { var l = p.toLowerCase(); return excl.indexOf(l) >= 0 || excl.indexOf(basename(l)) >= 0 }
+		ctx.log("info", "manifest.json leído · entrypoint: " + manifest.entrypoint + " · exclude: " + (excl.join(", ") || "(vacío)"))
+
+		var entry = normalize(manifest.entrypoint)
+		if (ctx.isExcluded(entry)) throw new Error("El entrypoint «" + entry + "» aparece en «exclude».")
+		var html = await source.text(entry)
+		var base = dirname(entry)
+		ctx.log("info", "Entrypoint cargado: " + entry + " (" + html.length.toLocaleString() + " caracteres)")
+
+		// 1) <link>: hojas de estilo → <style>; iconos locales → data:
+		html = await replaceAsync(html, /<link\b[^>]*>/gi, async function (tag) {
+			var rel = (getAttr(tag, "rel") || "").toLowerCase(), href = getAttr(tag, "href")
+			if (!href) return tag
+			if (isRemote(href)) { if (isHttp(href)) ctx.remote.push(href); return tag }
+			var p = resolve(base, href)
+			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: no se integra."); return tag }
+			if (/\bstylesheet\b/.test(rel)) {
+				var css = await inlineCss(source, p, ctx)
+				ctx.inlined.push(p)
+				var media = getAttr(tag, "media")
+				ctx.log("ok", "CSS integrado: " + p)
+				return "<style" + (media ? ' media="' + media + '"' : "") + ">\n" + css.replace(/<\/style/gi, "<\\/style") + "\n</style>"
+			}
+			if (/\bicon\b/.test(rel)) {
+				var b = await source.blob(p)
+				ctx.inlined.push(p)
+				var data = await toDataURL(b, mimeOf(p, b))
+				ctx.log("ok", "Icono integrado: " + p)
+				return tag.replace(href, function () { return data })
+			}
+			return tag
+		})
+
+		// 2) <script src>: JavaScript local → <script> inline (se conserva el orden del documento)
+		html = await replaceAsync(html, /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, async function (all, attrs) {
+			var src = getAttr(attrs, "src")
+			if (!src) return all
+			if (isRemote(src)) { if (isHttp(src)) ctx.remote.push(src); return all }
+			var p = resolve(base, src)
+			if (ctx.isExcluded(p)) { ctx.excluded.push(p); ctx.warn("«" + p + "» está en «exclude»: no se integra."); return all }
+			var code = await source.text(p)
+			var type = (getAttr(attrs, "type") || "").toLowerCase()
+			if (type === "module" && /(^|\n)\s*import[\s{*"']|\bimport\s*\(/.test(code)) {
+				ctx.warn("«" + p + "» es un módulo ES con import: no se puede integrar; se deja como enlace.")
+				return all
+			}
+			if (/\b(async|defer)\b/i.test(attrs)) ctx.warn("«" + p + "»: se pierden async/defer al incrustarlo (se ejecutará en orden de documento).")
+			ctx.inlined.push(p)
+			ctx.log("ok", "JS integrado: " + p + " (" + code.length.toLocaleString() + " caracteres)")
+			var keep = removeAttrs(attrs, ["src", "async", "defer", "integrity", "crossorigin"])
+			return "<script" + keep + ">\n" + code.replace(/<\/script/gi, "<\\/script").replace(/<\!--/g, "<\\!--") + "\n<\/script>"
+		})
+
+		var uniq = function (a) { return a.filter(function (x, i) { return a.indexOf(x) === i }) }
+		ctx.remote = uniq(ctx.remote)
+		return { html: html, entry: entry, manifest: manifest, inlined: uniq(ctx.inlined), remote: ctx.remote,
+			excluded: uniq(ctx.excluded), warnings: ctx.warnings }
+	}
+
+	// ───────────────────────────── Interfaz ─────────────────────────────
+	var $ = function (id) { return document.getElementById(id) }
+	var current = null
+
+	function log(level, msg) {
+		var d = document.createElement("div")
+		d.className = level
+		d.textContent = msg
+		$("log").appendChild(d)
+		$("log").scrollTop = $("log").scrollHeight
+	}
+	function setReady(ok) { $("btnOpen").disabled = !ok; $("btnSave").disabled = !ok }
+	function blobUrl() { return URL.createObjectURL(new Blob([current.html], { type: "text/html;charset=utf-8" })) }
+
+	async function run(source) {
+		$("log").textContent = ""
+		setReady(false)
+		current = null
+		try {
+			log("info", "Origen: " + source.label)
+			current = await build(source, log)
+			var kb = (current.html.length / 1024).toFixed(1)
+			log("ok", "✔ Versión autocontenida lista: " + kb + " KB · " + current.inlined.length + " archivo(s) integrado(s).")
+			current.remote.forEach(function (u) { log("warn", "Recurso remoto que sigue necesitando internet: " + u) })
+			if (location.protocol === "file:") log("warn", "Aviso: desde file:// la pestaña «Abrir el juego» (blob:) no puede usar IndexedDB, así que no se guardarían mundos ni ajustes. Para guardar, usa «Descargar HTML autocontenido» y abre ese archivo.")
+			$("stats").textContent = current.inlined.length + " archivos integrados · " + kb + " KB · " + current.remote.length + " recurso(s) remoto(s) sin incrustar"
+			setReady(true)
+		} catch (e) {
+			log("err", "✖ " + e.message)
+			if (source instanceof HttpSource) log("warn", "Si abriste este archivo con doble clic (file://), el navegador bloquea la lectura: usa «Seleccionar la carpeta del proyecto…».")
+		}
+	}
+
+	$("btnHttp").addEventListener("click", function () { run(new HttpSource(new URL(".", location.href).href)) })
+	$("folder").addEventListener("change", function (e) { if (e.target.files && e.target.files.length) run(new FolderSource(e.target.files)) })
+	$("btnOpen").addEventListener("click", function () {
+		if (!current) return
+		var w = window.open(blobUrl(), "_blank")
+		if (!w) log("warn", "El navegador bloqueó la ventana emergente: permítela o usa «Descargar HTML autocontenido».")
+	})
+	$("btnSave").addEventListener("click", function () {
+		if (!current) return
+		var a = document.createElement("a")
+		a.href = blobUrl()
+		a.download = "Minecraft-In-Html.standalone.html"
+		document.body.appendChild(a)
+		a.click()
+		a.remove()
+	})
+
+	window.MKLauncher = { build: build, normalize: normalize, FolderSource: FolderSource, HttpSource: HttpSource }
+
+	if (location.protocol === "http:" || location.protocol === "https:") {
+		$("mode").textContent = "Servido por HTTP: se construye automáticamente leyendo los archivos con fetch."
+		run(new HttpSource(new URL(".", location.href).href))
+	} else {
+		$("mode").textContent = "Abierto como archivo local (file://): el navegador no permite fetch a otros archivos. Selecciona la carpeta del proyecto."
+	}
+})()
+</script>
+</body>
+</html>
