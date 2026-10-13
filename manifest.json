@@ -1,0 +1,8 @@
+{
+  "entrypoint": "index.html",
+  "exclude": [
+    "README.md",
+    "launcher.html",
+    "manifest.json"
+  ]
+}
