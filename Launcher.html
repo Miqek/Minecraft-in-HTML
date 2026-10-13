@@ -618,7 +618,7 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 			ctx.inlined.push(p)
 			log("ok", "JS integrado: " + p + " (" + code.length.toLocaleString() + " car.)"); tick(p)
 			var keep = removeAttrs(attrs, ["src", "async", "defer", "integrity", "crossorigin"])
-			return "<script" + keep + ">\n" + code.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--") + "\n<\/script>"
+			return "<script" + keep + ">\n" + code.replace(/<\/script/gi, "<\\/script").replace(/<!\x2d\x2d/g, "<\\!--") + "\n<\/script>"
 		})
 
 		var uniq = function (a) { return a.filter(function (x, i) { return a.indexOf(x) === i }) }
@@ -682,7 +682,7 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 		document.body.classList.add("done")
 		setFile("¡Mundo generado!"); setTarget(100)
 		$("curtain").classList.add("on")
-		var mount = "<script>try{window.MCStore.mountUI()}catch(e){console.error(e)}<\/script>"
+		var mount = "<scr" + "ipt>try{window.MCStore.mountUI()}catch(e){console.error(e)}</scr" + "ipt>"
 		var i = html.toLowerCase().lastIndexOf("</body>")
 		var out = i >= 0 ? html.slice(0, i) + mount + html.slice(i) : html + mount
 		setTimeout(function () { document.open(); document.write(out); document.close() }, 900)
