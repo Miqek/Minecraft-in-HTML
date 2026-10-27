@@ -1,50 +1,92 @@
-# Minecraft-In-Html
+# Minecraft in HTML
 
-Versión modular del Minecraft en HTML/JS original (`Minecraft.html`). El juego, su apariencia y su
-comportamiento son los del archivo original: el código se ha **repartido, no reescrito**.
+Proyecto de un juego de bloques 3D inspirado en Minecraft, ejecutado en el navegador con HTML, CSS, JavaScript y WebGL. El repositorio conserva una versión original y una versión modular en desarrollo. No necesita Node.js ni un proceso de compilación para jugar.
 
-## Archivos
+## Empezar
 
-| Archivo | Función |
+- **Versión modular actual (V2.0):** abre `V2.0/js/bootstrap/index.html`.
+- **Versión original:** abre `V2.0/Original/index.html`.
+- **Versión modular anterior:** abre `index.html` en la raíz del repositorio.
+
+También se puede servir el repositorio desde su raíz con `python -m http.server 8000` y visitar:
+
+- `http://localhost:8000/V2.0/js/bootstrap/index.html`
+- `http://localhost:8000/V2.0/Original/index.html`
+- `http://localhost:8000/`
+
+La versión modular actual carga los scripts desde `V2.0/js/bootstrap/loader.js` y utiliza la hoja compartida `styles/main.css`. Las fuentes, el favicon y algunos servicios externos pueden requerir conexión a Internet. Los mundos guardados se almacenan en IndexedDB, que depende del origen desde el que se abra la página; para guardar partidas, es preferible usar un servidor local.
+
+## Mapa del repositorio
+
+```text
+Minecraft-in-HTML/
+├── index.html                 Versión modular anterior; entrada en la raíz
+├── Launcher.html              Generador de una página HTML autocontenida
+├── manifest.json              Configuración del Launcher
+├── styles/
+│   └── main.css               Estilos compartidos
+├── V2.0/
+│   ├── Original/              Copia de referencia de la versión original
+│   ├── docs/                  Arquitectura y guía de desarrollo
+│   ├── dev/                   Verificaciones y protocolo de pruebas
+│   └── js/                    Código modular de V2.0
+└── README.md                  Guía general del repositorio
+```
+
+### Versiones
+
+| Ruta | Qué contiene | Cuándo consultarla |
+|---|---|---|
+| `V2.0/js/` | Implementación modular actual del juego | Para jugar o modificar la versión actual. |
+| `V2.0/Original/` | Implementación original, organizada en pocos archivos grandes | Para comparar el comportamiento y localizar la lógica de origen. Su entrada es `index.html`. |
+| `index.html`, `js/` y `styles/` de la raíz | Versión modular anterior y sus recursos | Para consultar la versión previa o su Launcher. |
+
+## Mapa de `V2.0/js/`
+
+Los archivos se agrupan por responsabilidad. Si buscas una función concreta, empieza por la carpeta indicada y luego revisa el manifiesto para encontrar sus dependencias.
+
+| Carpeta | Qué contiene / dónde buscar |
 |---|---|
-| `index.html` | Punto de entrada. Mantiene el DOM, los shaders GLSL y carga el CSS y los scripts. |
-| `styles/main.css` | Estilos extraídos del `<style>` original (incluye el `@import` de Google Fonts «Poppins»). |
-| `js/textures.js` | Texturas procedurales (16×16 generadas por código), registro de bloques (blockData) y initTextures (atlas WebGL). |
-| `js/world.js` | Entorno, hash y semilla, ruido (Perlin/OpenSimplex), persistencia en IndexedDB, cuevas, Section/Chunk/World y menú de mundos. |
-| `js/player.js` | Estado del jugador (cámara, hitbox, inventario), romper/colocar bloques, HUD, hotbar e inventario, initPlayer. |
-| `js/physics.js` | PVector, ray tracing de bloques, colisiones, contactos y gravedad. |
-| `js/controls.js` | Pantallas/escenas, pointer lock, movimiento por teclado, widgets Slider/Button, eventos de ratón/teclado/rueda/resize y dibujo de cada pantalla. |
-| `js/engine.js` | Helpers 2D, contexto WebGL, shaders, formas, iconos, matrices y Camera, dibujo de bloques, use2d/use3d, initWebgl e initBackgrounds. |
-| `js/main.js` | Prelude global, estado y ajustes, play(), utilidades, carga, initEverything, bucle principal (gameLoop) y ENSAMBLADO de todas las secciones. |
-| `manifest.json` | Declara `entrypoint` y los archivos excluidos de la versión autocontenida. |
-| `Launcher.html` | Lee el manifiesto y genera una versión de **un solo HTML** (CSS y JS integrados). |
-| `README.md` | Este archivo. |
+| `bootstrap/` | Inicio de V2.0. `index.html` define el canvas, elementos HTML y shaders; `loader.js` carga los módulos; `module-manifest.js` registra archivos y dependencias; `assembler.js` los ensambla y arranca el juego. |
+| `core/` | Entorno compartido, constantes, ajustes y estado global (`environment.js`, `constants.js`, `settings.js`, `state.js`), eventos (`hooks.js`), inicialización y bucle (`init.js`, `game-loop.js`), métricas (`analytics.js`). |
+| `utils/` | Herramientas generales: formato, vectores, hash aleatorio y generadores de ruido Perlin/Simplex. |
+| `blocks/` | Registro, propiedades, variantes y definiciones de bloques; datos de texturas y creación del atlas WebGL. Para añadir un bloque, revisar `block-registry.js`, `block-defs-*.js` y `texture-data-*.js`. |
+| `render/` | Renderizado 2D/WebGL, shaders, contexto, cámara y matrices; geometría, mallas de bloques, iconos, fondos y renderizado del mundo. |
+| `world/` | Mundo, chunks y secciones, colas, sombras, almacenamiento y formato de guardado. `worldgen/` agrupa generación de terreno, cuevas y árboles. |
+| `physics/` | Movimiento y física del jugador, colisiones, gravedad y búsqueda de bloques mediante raycast. |
+| `player/` | Estado, modos, inicialización y punto de aparición del jugador. |
+| `controls/` | Entrada de usuario: teclado, ratón, rueda, movimiento, asignación de teclas, redimensionado y captura del puntero. |
+| `interaction/` | Acciones de juego sobre bloques: romperlos y colocarlos. |
+| `inventory/` | Estado del inventario, pilas de objetos, lógica de la hotbar e inventario creativo. |
+| `gamemodes/` | Gestión de modos de juego. `creative.js` y `survival/` contienen la lógica de creativo y supervivencia. |
+| `entities/` | Entidades del juego, su ciclo de vida y objetos soltados. |
+| `audio/` | Gestor de audio, registro de sonidos y eventos asociados. |
+| `ui/` | Gestión de escenas, layout, botones y sliders. `screens/` contiene menús y pantallas; `hud/`, la interfaz durante la partida. |
 
-## Cómo usarlo
+Los archivos con prefijo `_legacy-` conservan partes antiguas de supervivencia que todavía forman parte del ensamblado. No son carpetas temporales.
 
-1. **Jugar:** abre `index.html` con doble clic (no necesita servidor; usa `<script src>` clásicos).
-2. **Versión autocontenida:** abre `Launcher.html`.
-   - Con servidor (`python -m http.server` en esta carpeta) se construye solo.
-   - Con doble clic (`file://`) el navegador impide leer archivos: pulsa *Seleccionar la carpeta del proyecto…*.
-   - Luego *Abrir el juego* o *Descargar HTML autocontenido*.
+## Cómo arranca V2.0
 
-## Cómo está dividido el JavaScript (importante si lo editas)
+1. El navegador abre `V2.0/js/bootstrap/index.html`.
+2. `loader.js` lee `module-manifest.js` y carga los módulos respetando sus dependencias (`requires`).
+3. Cada archivo registra una o más secciones de código en `window.MineKhanParts`.
+4. `assembler.js` ordena las secciones por `order`, construye el ámbito compartido `MineKhan()` y ejecuta el bucle del juego.
 
-El original es **una sola función** `MineKhan()` con ~100 variables `let` compartidas. Separarla en `<script>`
-independientes o en módulos ES rompería ese ámbito, así que cada `js/*.js` registra **secciones numeradas**
-(`order`) en `window.MineKhanParts` y `js/main.js` las ensambla en el orden original y reconstruye
-`function MineKhan()` con el texto exacto de cada sección.
+Este ensamblado conserva variables compartidas entre secciones. El orden de carga del manifiesto resuelve dependencias entre archivos; el campo `order` determina el orden del código ensamblado. Al cambiar una sección, comprueba ambos aspectos y actualiza `module-manifest.js` si agregas un archivo nuevo.
 
-- Cada archivo lista arriba sus secciones y las líneas que ocupaban en el HTML original.
-- No cambies el `order` de una sección ni muevas código entre secciones sin entender el orden de ejecución:
-  las variables `let`/`class` deben estar declaradas antes de usarse en tiempo de ejecución.
-- `main.js` debe cargarse el último y todos los `js/*.js` deben estar presentes (si falta uno, lanza un error claro).
+### Puntos de entrada rápidos
 
-## Limitaciones
+- **Inicio y ciclo de juego:** `js/bootstrap/index.html`, `js/bootstrap/loader.js`, `js/bootstrap/assembler.js`, `js/core/init.js`, `js/core/game-loop.js`.
+- **Shaders y aspecto de la niebla:** shaders en `js/bootstrap/index.html`; lógica de distancia y chunks en `js/world/world.js` y `js/world/chunk-queues.js`.
+- **Texturas y bloques:** `js/blocks/texture-atlas.js`, `js/blocks/texture-data-*.js`, `js/blocks/block-defs-*.js`.
+- **Generación del mundo:** `js/world/worldgen/terrain.js`, `js/world/worldgen/caves.js`, `js/world/worldgen/trees.js`.
+- **Movimiento, controles e interacción:** `js/physics/`, `js/player/`, `js/controls/`, `js/interaction/`.
+- **Menús e interfaz:** `js/ui/screens/`, `js/ui/hud/`, `js/ui/widgets/`.
+- **Guardado de mundos:** `js/world/world-storage.js`, `js/world/world-save-format.js`.
 
-- Recursos externos que el juego sigue necesitando (no se incrustan): fuente Google Fonts, favicon de minecraft.net y el widget de arc.io.
-- El Launcher solo integra archivos locales referenciados por el entrypoint; no detecta cargas dinámicas.
-- Los mundos guardados usan IndexedDB, ligado al origen de la página (`file://`, `http://localhost`, `blob:`…).
-  Si abres `Launcher.html` con doble clic, el botón *Abrir el juego* crea una pestaña `blob:` donde Chromium **deniega IndexedDB**
-  (el juego arranca, pero no guarda mundos ni ajustes). Para guardar usa *Descargar HTML autocontenido* y abre ese archivo,
-  `index.html` o sirve la carpeta por HTTP.
+## Desarrollo y comprobaciones
+
+- La guía de arquitectura está en `V2.0/docs/ARCHITECTURE.md`; las convenciones de modularización, en `V2.0/docs/AI_GUIDE.md`.
+- Ejecuta `node V2.0/dev/check-modules.js` desde la raíz para comprobar que los módulos y las rutas del manifiesto existen y que no hay identificadores u órdenes duplicados.
+- `V2.0/dev/smoke-test.md` contiene comprobaciones manuales de las funciones principales del juego.
+- La versión usa JavaScript clásico en el navegador; no hay `npm install` ni paso de build.
