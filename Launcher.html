@@ -173,9 +173,9 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 	var DATA_OPEN = "<scr" + 'ipt type="application/json" id="mc-data">'
 	var DATA_CLOSE = "</scr" + "ipt>"
 
-	var RAW_BASE = "https://raw.githubusercontent.com/Miqek/Minecraft-in-HTML/"
+	var RAW_BASE = "https://raw.githubusercontent.com/Miqek/Minecraft-in--HTML/"
 	var GITHUB_BASE = RAW_BASE + "main/"
-	var GITHUB_API = "https://api.github.com/repos/Miqek/Minecraft-in-HTML/commits/main"
+	var GITHUB_API = "https://api.github.com/repos/Miqek/Minecraft-in--HTML/commits/main"
 	var MIN_SHOW_MS = 2800
 
 	var $ = function (id) { return document.getElementById(id) }
@@ -555,17 +555,55 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 		var ctx = { inlined: [], remote: [], excluded: [], warnings: [] }
 		ctx.warn = function (m) { ctx.warnings.push(m); log("warn", m) }
 
-		setFile("Leyendo manifest.json…"); setTarget(4)
-		var manifest = JSON.parse(await source.text("manifest.json"))
-		if (!manifest || typeof manifest.entrypoint !== "string") throw new Error("manifest.json: falta «entrypoint».")
-		var excl = (Array.isArray(manifest.exclude) ? manifest.exclude : []).map(function (e) { return normalize(e).toLowerCase() })
-		ctx.isExcluded = function (p) { var l = p.toLowerCase(); return excl.indexOf(l) >= 0 || excl.indexOf(basename(l)) >= 0 }
-		log("ok", "manifest.json OK · entrypoint: " + manifest.entrypoint)
+		setFile("Leyendo js/bootstrap/module-manifest.js…"); setTarget(4)
+		var manifestSource = await source.text("js/bootstrap/module-manifest.js")
+		var manifestMatch = /window\.MineKhanManifest\s*=\s*\[([\s\S]*)\]\s*;?\s*$/.exec(manifestSource)
+		if (!manifestMatch) throw new Error("js/bootstrap/module-manifest.js: no se encuentra «MineKhanManifest».")
 
-		var entry = normalize(manifest.entrypoint)
+		var modules = [], modulePattern = /\{\s*id:\s*"([^"]+)"\s*,\s*file:\s*"([^"]+)"\s*,\s*requires:\s*\[([^\]]*)\]\s*\}/g
+		var moduleMatch
+		while ((moduleMatch = modulePattern.exec(manifestMatch[1])) !== null) {
+			var requires = [], requirePattern = /["']([^"']+)["']/g, requireMatch
+			while ((requireMatch = requirePattern.exec(moduleMatch[3])) !== null) requires.push(requireMatch[1])
+			modules.push({ id: moduleMatch[1], file: moduleMatch[2], requires: requires })
+		}
+		var declaredModules = manifestMatch[1].match(/\bid\s*:/g) || []
+		if (!modules.length || modules.length !== declaredModules.length) {
+			throw new Error("js/bootstrap/module-manifest.js: el manifiesto de módulos no es válido.")
+		}
+
+		var moduleMap = {}
+		modules.forEach(function (mod) {
+			if (!mod || typeof mod.id !== "string" || typeof mod.file !== "string") {
+				throw new Error("js/bootstrap/module-manifest.js: cada módulo necesita «id» y «file».")
+			}
+			if (moduleMap[mod.id]) throw new Error("js/bootstrap/module-manifest.js: ID de módulo duplicado: " + mod.id)
+			moduleMap[mod.id] = mod
+		})
+
+		var orderedModules = [], visited = {}, visiting = {}
+		function visitModule(id) {
+			if (visited[id]) return
+			if (visiting[id]) throw new Error("Dependencia circular en el módulo: " + id)
+			var mod = moduleMap[id]
+			if (!mod) throw new Error("Módulo requerido no encontrado en module-manifest.js: " + id)
+			visiting[id] = true
+			if (Array.isArray(mod.requires)) mod.requires.forEach(visitModule)
+			visiting[id] = false
+			visited[id] = true
+			orderedModules.push(mod)
+		}
+		modules.forEach(function (mod) { visitModule(mod.id) })
+
+		ctx.isExcluded = function () { return false }
+		log("ok", "module-manifest.js OK · " + orderedModules.length + " módulos")
+
+		var entry = "js/bootstrap/index.html"
 		setFile("Descargando " + entry + "…"); setTarget(10)
 		var html = await source.text(entry)
-		var base = dirname(entry)
+		var baseTag = /<base\b[^>]*>/i.exec(html)
+		var baseHref = baseTag && getAttr(baseTag[0], "href")
+		var base = baseHref ? resolve(dirname(entry), baseHref) : dirname(entry)
 		log("ok", "Entrypoint cargado: " + entry)
 
 		var total = 0
@@ -575,10 +613,24 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 		;(html.match(/<script\b[^>]*>/gi) || []).forEach(function (t) {
 			var s = getAttr(t, "src"); if (s && !isRemote(s) && !ctx.isExcluded(resolve(base, s))) total++
 		})
+		total += orderedModules.length + 1
 		total = Math.max(total, 1)
 		var done = 0
 		function tick(name) { done++; setTarget(10 + (done / total) * 80); setFile("Integrando " + name) }
 
+		var bundledScripts = []
+		for (var moduleIndex = 0; moduleIndex < orderedModules.length; moduleIndex++) {
+			var modulePath = normalize(orderedModules[moduleIndex].file)
+			bundledScripts.push(await source.text(modulePath))
+			ctx.inlined.push(modulePath)
+			log("ok", "Módulo integrado: " + modulePath)
+			tick(modulePath)
+		}
+		var assemblerPath = "js/bootstrap/assembler.js"
+		bundledScripts.push(await source.text(assemblerPath))
+		ctx.inlined.push(assemblerPath)
+		log("ok", "Ensamblador integrado: " + assemblerPath)
+		tick(assemblerPath)
 		html = await replaceAsync(html, /<link\b[^>]*>/gi, async function (tag) {
 			var rel = (getAttr(tag, "rel") || "").toLowerCase(), href = getAttr(tag, "href")
 			if (!href) return tag
@@ -587,7 +639,13 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 			if (ctx.isExcluded(p)) return tag
 			setFile("Descargando " + p + "…")
 			if (/\bstylesheet\b/.test(rel)) {
-				var css = await inlineCss(source, p, ctx)
+				var css
+				try {
+					css = await inlineCss(source, p, ctx)
+				} catch (e) {
+					ctx.warn("No se pudo integrar la hoja de estilos «" + p + "»: " + e.message)
+					return ""
+				}
 				ctx.inlined.push(p)
 				var media = getAttr(tag, "media")
 				log("ok", "CSS integrado: " + p); tick(p)
@@ -608,6 +666,17 @@ body.done #panel{transform:scale(.97);transition:transform .6s}
 			if (isRemote(src)) { if (isHttp(src)) ctx.remote.push(src); return all }
 			var p = resolve(base, src)
 			if (ctx.isExcluded(p)) return all
+			if (p === "js/bootstrap/loader.js") {
+				ctx.inlined.push(p)
+				log("ok", "Bootstrap modular integrado · " + orderedModules.length + " módulos")
+				tick("bootstrap modular")
+				var keepLoaderAttrs = removeAttrs(attrs, ["src", "async", "defer", "integrity", "crossorigin"])
+				return bundledScripts.map(function (code) {
+					return "<script" + keepLoaderAttrs + ">\n" +
+						code.replace(/<\/script/gi, "<\\/script").replace(/<!\x2d\x2d/g, "<\\!--") +
+						"\n<\/script>"
+				}).join("\n")
+			}
 			setFile("Descargando " + p + "…")
 			var code = await source.text(p)
 			var type = (getAttr(attrs, "type") || "").toLowerCase()
