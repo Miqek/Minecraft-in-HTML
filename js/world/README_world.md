@@ -36,4 +36,4 @@ flowchart TD
 - `caves` → `simplex-noise`, `block-registry`. `world-storage` → `core/environment`.
 
 ## Referencias
-- [`utils`](README_utils.md), [`blocks`](README_blocks.md), [`render`](README_render.md) (`defineWorld`), [`ui`](README_ui.md) (`world-select`, `world-create`), [`interaction`](README_interaction.md).
+- [`utils`](../utils/README_utils.md), [`blocks`](../blocks/README_blocks.md), [`render`](../render/README_render.md) (`defineWorld`), [`ui`](../ui/README_ui.md) (`world-select`, `world-create`), [`interaction`](../interaction/README_interaction.md).

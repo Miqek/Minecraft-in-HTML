@@ -43,4 +43,4 @@ flowchart TD
 - `hunger` → `player/player-state`.
 
 ## Referencias
-- [`blocks`](README_blocks.md), [`inventory`](README_inventory.md), [`player`](README_player.md), [`ui`](README_ui.md) (HUD y pantalla de muerte), [`core`](README_core.md).
+- [`blocks`](../blocks/README_blocks.md), [`inventory`](../inventory/README_inventory.md), [`player`](../player/README_player.md), [`ui`](../ui/README_ui.md) (HUD y pantalla de muerte), [`core`](../core/README_core.md).

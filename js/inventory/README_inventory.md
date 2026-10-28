@@ -27,4 +27,4 @@ flowchart LR
 - `item-stacks` → `gamemodes/survival/survival-state`, `inventory-state`.
 
 ## Referencias
-- [`player`](README_player.md), [`render`](README_render.md), [`controls`](README_controls.md), [`gamemodes`](README_gamemodes.md), [`entities`](README_entities.md), [`ui`](README_ui.md).
+- [`player`](../player/README_player.md), [`render`](../render/README_render.md), [`controls`](../controls/README_controls.md), [`gamemodes`](../gamemodes/README_gamemodes.md), [`entities`](../entities/README_entities.md), [`ui`](../ui/README_ui.md).

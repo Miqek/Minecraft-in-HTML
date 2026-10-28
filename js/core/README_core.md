@@ -29,5 +29,5 @@ flowchart TD
 - `state` → `constants`, `settings`. `init` → `state`. `game-loop` → `init`.
 
 ## Referencias
-- `game-loop` usa `controls`, `runGravity`, `resolveContactsAndUpdatePosition`, `hud`, `defineWorld`: ver [`controls`](README_controls.md), [`physics`](README_physics.md), [`ui`](README_ui.md), [`render`](README_render.md).
-- `hooks` lo usan [`audio`](README_audio.md), [`entities`](README_entities.md) y [`gamemodes`](README_gamemodes.md).
+- `game-loop` usa `controls`, `runGravity`, `resolveContactsAndUpdatePosition`, `hud`, `defineWorld`: ver [`controls`](../controls/README_controls.md), [`physics`](../physics/README_physics.md), [`ui`](../ui/README_ui.md), [`render`](../render/README_render.md).
+- `hooks` lo usan [`audio`](../audio/README_audio.md), [`entities`](../entities/README_entities.md) y [`gamemodes`](../gamemodes/README_gamemodes.md).

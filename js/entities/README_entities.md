@@ -23,4 +23,4 @@ flowchart LR
 - `item-drops` → `entity-manager`, `inventory/item-stacks`.
 
 ## Referencias
-- [`utils`](README_utils.md), [`core`](README_core.md), [`inventory`](README_inventory.md).
+- [`utils`](../utils/README_utils.md), [`core`](../core/README_core.md), [`inventory`](../inventory/README_inventory.md).

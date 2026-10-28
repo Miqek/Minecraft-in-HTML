@@ -36,4 +36,5 @@ sequenceDiagram
 - Referencia a todos los módulos de `js/` a través del manifiesto.
 
 ## Referencias
-- Punto de entrada del proyecto: `Launcher.html` (raíz). Prueba de módulos: `dev/check-modules.js`.
+- Punto de entrada del proyecto: [`Launcher.html`](../../Launcher.html) (raíz).
+- Prueba de módulos: [`dev/check-modules.js`](../../dev/check-modules.js).

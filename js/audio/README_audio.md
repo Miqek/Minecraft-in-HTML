@@ -25,5 +25,5 @@ flowchart LR
 - `sound-events` → `sound-registry`, `core/hooks`
 
 ## Referencias
-- [`core`](README_core.md): `hooks` y `environment`.
-- `orden` de ensamblado: 30.50 a 30.52 (después de los controles).
+- [`core`](../core/README_core.md): `hooks` y `environment`.
+- Orden de ensamblado: 30.50 a 30.52 (después de los controles).

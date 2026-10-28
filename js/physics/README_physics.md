@@ -28,4 +28,4 @@ flowchart LR
 - `movement` → `collision`, `raycast`. `gravity` → `core/environment`.
 
 ## Referencias
-- [`core`](README_core.md), [`blocks`](README_blocks.md), [`interaction`](README_interaction.md), [`player`](README_player.md).
+- [`core`](../core/README_core.md), [`blocks`](../blocks/README_blocks.md), [`interaction`](../interaction/README_interaction.md), [`player`](../player/README_player.md).

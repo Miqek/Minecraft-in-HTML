@@ -28,4 +28,4 @@ flowchart LR
 - `player-modes` → `player-state`, `core/constants`, `core/settings`.
 
 ## Referencias
-- [`utils`](README_utils.md), [`render`](README_render.md), [`core`](README_core.md), [`controls`](README_controls.md), [`inventory`](README_inventory.md).
+- [`utils`](../utils/README_utils.md), [`render`](../render/README_render.md), [`core`](../core/README_core.md), [`controls`](../controls/README_controls.md), [`inventory`](../inventory/README_inventory.md).

@@ -25,4 +25,4 @@ flowchart LR
 - `perlin-noise` → `random-hash`. Los demás → `core/environment`.
 
 ## Referencias
-- [`world`](README_world.md), [`player`](README_player.md), [`entities`](README_entities.md), [`physics`](README_physics.md).
+- [`world`](../world/README_world.md), [`player`](../player/README_player.md), [`entities`](../entities/README_entities.md), [`physics`](../physics/README_physics.md).

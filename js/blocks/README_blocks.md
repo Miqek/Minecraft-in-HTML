@@ -40,5 +40,5 @@ flowchart TD
 - Dependen de `core/environment`.
 
 ## Referencias
-- Consumen `blockData`/`blockIds`: [`world`](README_world.md), [`physics`](README_physics.md), [`interaction`](README_interaction.md), [`render`](README_render.md), [`gamemodes`](README_gamemodes.md).
-- `initTextures` usa `gl` de [`render`](README_render.md).
+- Consumen `blockData`/`blockIds`: [`world`](../world/README_world.md), [`physics`](../physics/README_physics.md), [`interaction`](../interaction/README_interaction.md), [`render`](../render/README_render.md), [`gamemodes`](../gamemodes/README_gamemodes.md).
+- `initTextures` usa `gl` de [`render`](../render/README_render.md).

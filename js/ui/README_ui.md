@@ -31,4 +31,4 @@ flowchart TD
 - `hotbar-bar` → `inventory-state`, `render/block-icons`.
 
 ## Referencias
-- [`render`](README_render.md) (`canvas2d`), [`world`](README_world.md), [`gamemodes`](README_gamemodes.md), [`inventory`](README_inventory.md), [`core`](README_core.md).
+- [`render`](../render/README_render.md) (`canvas2d`), [`world`](../world/README_world.md), [`gamemodes`](../gamemodes/README_gamemodes.md), [`inventory`](../inventory/README_inventory.md), [`core`](../core/README_core.md).

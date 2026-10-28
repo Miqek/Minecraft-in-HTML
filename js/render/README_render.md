@@ -37,5 +37,5 @@ flowchart TD
 - `block-icons` → `gl-context`, `block-shapes`, `matrices`. `world-renderer` → `core/state`.
 
 ## Referencias
-- [`blocks`](README_blocks.md) (`blockData`, atlas), [`world`](README_world.md), [`ui`](README_ui.md), [`core`](README_core.md).
-- Los shaders también aparecen como etiquetas `<script>` en `bootstrap/index.html`.
+- [`blocks`](../blocks/README_blocks.md) (`blockData`, atlas), [`world`](../world/README_world.md), [`ui`](../ui/README_ui.md), [`core`](../core/README_core.md).
+- Los shaders también aparecen como etiquetas `<script>` en [`bootstrap/index.html`](../bootstrap/index.html).

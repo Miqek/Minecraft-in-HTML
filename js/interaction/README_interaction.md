@@ -27,4 +27,4 @@ flowchart LR
 - Usan en tiempo de ejecución `hitBox`, `holding`, `currentGamemode`, `world`.
 
 ## Referencias
-- [`physics`](README_physics.md) (raycast y colisión), [`controls`](README_controls.md), [`world`](README_world.md), [`gamemodes`](README_gamemodes.md).
+- [`physics`](../physics/README_physics.md) (raycast y colisión), [`controls`](../controls/README_controls.md), [`world`](../world/README_world.md), [`gamemodes`](../gamemodes/README_gamemodes.md).
