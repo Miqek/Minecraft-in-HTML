@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de prompts · Minecraft in HTML</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--sub:#6e6e73;--line:#d2d2d7;--blue:#0071e3;--blue-h:#0077ed;--fill:#f0f0f3;--code:#fbfbfd}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--sub:#98989d;--line:#38383a;--blue:#0a84ff;--blue-h:#409cff;--fill:#2c2c2e;--code:#161618}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:760px;margin:0 auto;padding:64px 20px 80px}
+h1{font-size:40px;line-height:1.1;letter-spacing:-.025em;font-weight:700;margin:0 0 10px;text-align:center}
+.lead{color:var(--sub);font-size:19px;text-align:center;margin:0 0 40px}
+.card{background:var(--card);border-radius:22px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:24px}
+label.t{display:block;font-size:13px;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.seg{display:flex;background:var(--fill);border-radius:10px;padding:3px;gap:2px;margin-bottom:24px}
+.seg button{flex:1;border:0;background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:500;padding:8px 6px;border-radius:8px;cursor:pointer;transition:.2s}
+.seg button.on{background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+textarea{width:100%;min-height:150px;resize:vertical;border:1px solid var(--line);border-radius:14px;background:transparent;color:var(--text);font:inherit;font-size:17px;line-height:1.45;padding:14px 16px;outline:none;transition:.2s}
+textarea:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.18)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}
+.chip{border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:14px;padding:6px 14px;border-radius:980px;cursor:pointer;transition:.2s}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.hint{font-size:13px;color:var(--sub);margin:-14px 0 24px}
+.primary{display:block;width:100%;border:0;background:var(--blue);color:#fff;font:inherit;font-size:17px;font-weight:500;padding:14px;border-radius:980px;cursor:pointer;margin-top:22px;transition:.2s}
+.primary:hover{background:var(--blue-h)}
+.primary:disabled{opacity:.35;cursor:not-allowed}
+#out{display:none}
+#out.show{display:block;animation:in .4s ease}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.head h2{margin:0;font-size:21px;font-weight:600;letter-spacing:-.01em}
+.copy{border:0;background:var(--fill);color:var(--blue);font:inherit;font-size:14px;font-weight:500;padding:8px 18px;border-radius:980px;cursor:pointer;transition:.2s}
+.copy:hover{filter:brightness(.96)}
+pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:14px;padding:16px;max-height:420px;overflow:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.steps{color:var(--sub);font-size:14px;margin:16px 2px 0;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+  <h1>Crea el teu prompt</h1>
+  <p class="lead">Explica què vols canviar a Minecraft in HTML. Nosaltres preparem el prompt perquè una IA et generi el definitiu.</p>
+
+  <section class="card">
+    <label class="t">Tipus de canvi</label>
+    <div class="seg" id="seg">
+      <button class="on" data-v="Corregir un error">Corregir</button>
+      <button data-v="Millorar una funcionalitat existent">Millorar</button>
+      <button data-v="Afegir una funcionalitat nova">Afegir</button>
+    </div>
+
+    <label class="t" for="req">Què vols fer?</label>
+    <textarea id="req" placeholder="Per exemple: vull que la hotbar mostri el nom del bloc seleccionat."></textarea>
+
+    <label class="t" style="margin-top:24px">Carpetes implicades (opcional)</label>
+    <div class="chips" id="chips"></div>
+    <p class="hint">Si no ho saps, deixa-ho buit: la IA ho decidirà llegint els README.</p>
+
+    <button class="primary" id="go" disabled>Crear prompt</button>
+  </section>
+
+  <section class="card" id="out">
+    <div class="head">
+      <h2>El teu prompt</h2>
+      <button class="copy" id="copy">Copiar</button>
+    </div>
+    <pre id="res"></pre>
+    <p class="steps">Enganxa'l en una IA amb accés a internet. Ella et retornarà el prompt definitiu, amb els README i fitxers del repositori que cal llegir.</p>
+  </section>
+</main>
+
+<script>
+const TEMPLATE = "# Rol\nEres el planificador técnico del proyecto open-source Minecraft-in-HTML (JavaScript vanilla, sin bundler ni módulos ES). Tu trabajo NO es escribir código: es analizar mi petición, decidir dónde actuar y generar un segundo prompt listo para que otra IA lo ejecute.\n\n# Proceso guiado (sigue el orden, sin saltarte pasos)\n1. Lee el [README general](https://github.com/Miqek/Minecraft-in-HTML/blob/main/docs/README.md) para entender qué es el proyecto y cómo se estructura.\n2. Analiza mi petición (al final de este prompt) e identifica si es una corrección, una mejora o una funcionalidad nueva.\n3. Lee el [README de /js](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/README_js.md). Contiene la tabla de carpetas y la guía \"dónde mirar según la tarea\".\n4. Razona qué carpetas están implicadas (principal y secundarias) y por qué.\n5. Lee el [README de bootstrap](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/bootstrap/README_bootstrap.md) para saber cómo se registran y cargan los módulos. Lee también los README de las carpetas elegidas en el paso 4, usando solo los enlaces de la tabla de abajo.\n6. Decide si hay que modificar archivos existentes, crear archivos nuevos (que exigirían una línea en el [manifiesto](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/bootstrap/module-manifest.js)) o ambas cosas.\n7. Genera el Prompt 2 con el formato indicado abajo.\n\n# Enlaces de los README por carpeta (usa solo los necesarios)\n- [audio](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/audio/README_audio.md)\n- [blocks](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/blocks/README_blocks.md)\n- [bootstrap](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/bootstrap/README_bootstrap.md)\n- [controls](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/controls/README_controls.md)\n- [core](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/core/README_core.md)\n- [entities](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/entities/README_entities.md)\n- [gamemodes](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/gamemodes/README_gamemodes.md)\n- [interaction](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/interaction/README_interaction.md)\n- [inventory](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/inventory/README_inventory.md)\n- [physics](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/physics/README_physics.md)\n- [player](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/player/README_player.md)\n- [render](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/render/README_render.md)\n- [ui](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/ui/README_ui.md)\n- [utils](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/utils/README_utils.md)\n- [world](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/world/README_world.md)\n\n# Qué debes entregarme\n## A. Análisis breve (máximo 8 líneas)\nTipo de petición, carpetas implicadas y motivo de cada una.\n\n## B. Prompt 2 completo, en un único bloque de código\nUsa exactamente la plantilla de abajo. Rellena los campos <...> con datos reales; no dejes campos vacíos ni inventes archivos: si dudas de que un archivo exista, indícalo como \"por verificar\". Copia sin cambios los bloques \"Proceso\", \"Reglas de código\" y \"Formato de respuesta\".\n\n---INICIO PROMPT 2---\n# Rol\nEres un desarrollador del proyecto Minecraft-in-HTML (JavaScript vanilla; los archivos se fusionan en una única función `MineKhan()`).\n\n# Petición\n<petición reformulada con precisión>\n\n# Lectura obligatoria (en este orden)\n1. [README general](https://github.com/Miqek/Minecraft-in-HTML/blob/main/docs/README.md)\n2. [README de /js](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/README_js.md)\n3. [README de bootstrap](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/bootstrap/README_bootstrap.md)\n4. <enlaces a los README de las carpetas implicadas, uno por línea>\n5. <archivos concretos a abrir, con su enlace, si se conocen>\n6. [module-manifest.js](https://github.com/Miqek/Minecraft-in-HTML/blob/main/js/bootstrap/module-manifest.js) (solo si hay archivos nuevos o cambian dependencias)\n\n# Alcance\n- Carpetas a tocar: <lista>\n- Archivos a modificar: <lista o \"ninguno\">\n- Archivos nuevos propuestos: <ruta + función de cada uno, o \"ninguno\">\n- Dependencias que podrían verse afectadas: <módulos que consumen lo modificado>\n\n# Proceso\n1. Lee los enlaces en el orden indicado. Si no puedes abrir alguno, dilo y no supongas su contenido.\n2. Abre los archivos reales que vas a modificar y confirma sus nombres exactos y lo que proveen. No inventes funciones, variables, carpetas ni archivos.\n3. Comprueba en los README qué módulos dependen de lo que vas a cambiar y evita romperlos.\n4. Propón la solución más pequeña posible que cumpla la petición.\n5. Entrega el resultado con el formato de respuesta.\n\n# Reglas de código\n- Código corto, con el estilo de los archivos existentes: un módulo por responsabilidad, sin duplicar lógica que ya exista.\n- Sin import/export, sin bundler y sin dependencias externas: todo comparte el ámbito de MineKhan().\n- Todo archivo nuevo sigue este formato:\n```js\n/* js/<carpeta>/<archivo>.js — <descripción> | Provee: <nombres o —> | Requiere: <nombres o —> | Posee: <qué contiene> | Origen: nuevo (arquitectura modular) */\n\nwindow.MineKhanParts = window.MineKhanParts || []\n\nwindow.MineKhanParts.push({\n\tid: \"<carpeta>/<archivo>\",\n\torder: <número único, p. ej. 20.27>,\n\tname: \"<nombre descriptivo>\",\n\tbody: function () {\n\t\t// código del módulo\n\t}\n})\n```\n- id y order deben ser únicos en todo el proyecto: el ensamblador lanza error si hay duplicados.\n- Elige un order que ejecute el módulo después de lo que usa. La parte entera del order cae dentro de las secciones base 1–40 que valida el ensamblador.\n- Para comunicar módulos, prefiere el bus hooks (hooks.on, hooks.emit) antes que acoplar directamente.\n- Si el archivo es nuevo, entrega también su línea para module-manifest.js, con sus dependencias reales en requires, e indica entre qué dos líneas debe ir. No puede haber dependencias circulares:\n```js\n{ id: \"<carpeta>/<archivo>\", file: \"js/<carpeta>/<archivo>.js\", requires: [\"<id1>\", \"<id2>\"] },\n```\n- No modifiques archivos que no estén en el alcance sin justificarlo.\n\n# Formato de respuesta\n1. Resumen: qué cambias y por qué, en 3-5 líneas.\n2. Archivos modificados: por cada uno, ruta, código completo del fragmento a sustituir y dónde va.\n3. Archivos nuevos: ruta y código completo.\n4. Líneas para module-manifest.js: solo si procede, con su posición exacta.\n5. Impacto: módulos que consumen lo modificado y qué revisar.\n6. Comprobación: pasos concretos para verificarlo abriendo Launcher.html en Chrome.\n7. README a actualizar: qué README de carpeta habría que ajustar y qué línea cambiar, si procede.\n---FIN PROMPT 2---\n\n# Reglas para ti\n- No generes código en esta fase.\n- Si la petición es ambigua o falta información crítica, haz como máximo 3 preguntas antes del Prompt 2.\n- Si no puedes abrir un enlace, dilo y no supongas su contenido.\n\n# Mi petición\n{{PETICION}}\n";
+const FOLDERS = ["audio","blocks","bootstrap","controls","core","entities","gamemodes","interaction","inventory","physics","player","render","ui","utils","world"];
+const $ = id => document.getElementById(id);
+let type = "Corregir un error";
+const picked = new Set();
+
+FOLDERS.forEach(f => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = f;
+  b.onclick = () => { picked.has(f) ? picked.delete(f) : picked.add(f); b.classList.toggle("on"); };
+  $("chips").appendChild(b);
+});
+
+$("seg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("seg").querySelectorAll("button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); type = b.dataset.v;
+});
+
+$("req").addEventListener("input", () => { $("go").disabled = !$("req").value.trim(); });
+
+$("go").onclick = () => {
+  let petition = "Tipus: " + type + "\n\n" + $("req").value.trim();
+  if (picked.size) petition += "\n\nCarpetes que crec implicades (a verificar): " + [...picked].join(", ");
+  $("res").textContent = TEMPLATE.replace("{{PETICION}}", () => petition);
+  $("out").classList.add("show");
+  $("out").scrollIntoView({behavior: "smooth", block: "start"});
+};
+
+$("copy").onclick = async () => {
+  const text = $("res").textContent;
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($("res"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); s.removeAllRanges();
+  }
+  $("copy").textContent = "Copiat ✓";
+  setTimeout(() => $("copy").textContent = "Copiar", 1800);
+};
+</script>
+</body>
+</html>
